@@ -16,6 +16,8 @@ final class Item {
     volatile Drawable banner, icon;
     volatile int backgroundColor;
     volatile boolean colorRequested;
+    volatile android.graphics.Bitmap backdrop;
+    volatile boolean backdropRequested;
 
     Item(String id, CharSequence label, Intent intent) {
         this.id = id;

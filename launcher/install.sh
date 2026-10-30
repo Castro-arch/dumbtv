@@ -87,7 +87,10 @@ if [[ $mode == undo ]]; then
 fi
 
 build_apk() {
-  ./build.sh
+  case $OSTYPE in
+    msys*|cygwin*) ./build-win.sh ;;
+    *) ./build.sh ;;
+  esac
   APK=build/dumbtv-home.apk
 }
 

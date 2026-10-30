@@ -11,6 +11,11 @@ import android.content.IntentFilter;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Color;
+import android.graphics.drawable.BitmapDrawable;
+import android.graphics.drawable.ColorDrawable;
+import android.graphics.drawable.Drawable;
+import android.graphics.drawable.GradientDrawable;
+import android.graphics.drawable.TransitionDrawable;
 import android.graphics.Rect;
 import android.media.tv.TvInputManager;
 import android.net.Uri;
@@ -79,6 +84,7 @@ public final class Home extends Activity {
     private ValueAnimator colorAnimation;
     private int displayedColor, targetColor;
     private boolean tintWallpaper;
+    private android.graphics.Bitmap shownBackdrop;
 
     private final BroadcastReceiver packages = new BroadcastReceiver() {
         @Override
@@ -128,10 +134,17 @@ public final class Home extends Activity {
         Row(String kind, String name, LinearLayout parent) {
             this.kind = kind;
             int edge = dp(56), bleed = dp(14);
-            title = Ui.text(Home.this, 12, Ui.FAINT, Ui.MEDIUM);
-            title.setText(name.toUpperCase(Locale.ROOT));
-            title.setLetterSpacing(0.14f);
-            title.setPadding(edge, dp(20), edge, dp(2));
+            if (tvos()) {
+                // Apple TV: plain sentence-case headings, a little larger and bolder.
+                title = Ui.text(Home.this, 19, Ui.MUTED, Ui.MEDIUM);
+                title.setText(name);
+                title.setPadding(edge, dp(24), edge, dp(4));
+            } else {
+                title = Ui.text(Home.this, 12, Ui.FAINT, Ui.MEDIUM);
+                title.setText(name.toUpperCase(Locale.ROOT));
+                title.setLetterSpacing(0.14f);
+                title.setPadding(edge, dp(20), edge, dp(2));
+            }
             strip = new LinearLayout(Home.this);
             strip.setClipChildren(false);
             strip.setClipToPadding(false);
@@ -538,8 +551,9 @@ public final class Home extends Activity {
         head.setPadding(dp(56), 0, dp(56), dp(12));
         LinearLayout when = new LinearLayout(this);
         when.setOrientation(LinearLayout.VERTICAL);
-        clock = Ui.text(this, 52, Ui.TEXT, Ui.LIGHT);
-        date = Ui.text(this, 15, Ui.MUTED, Ui.MEDIUM);
+        clock = Ui.text(this, tvos() ? 44 : 52, Ui.TEXT, Ui.LIGHT);
+        date = Ui.text(this, tvos() ? 16 : 15, Ui.MUTED, Ui.MEDIUM);
+        if (tvos()) clock.setShadowLayer(dp(12), 0, dp(2), 0x66000000);
         date.setPadding(dp(2), dp(8), 0, 0);
         when.addView(clock);
         when.addView(date);
@@ -603,6 +617,10 @@ public final class Home extends Activity {
         return best;
     }
 
+    private boolean tvos() {
+        return "tvos".equals(cfg.get(Config.TILE_STYLE));
+    }
+
     private boolean locked() {
         return "on".equals(cfg.get(Config.LOCK));
     }
@@ -631,7 +649,7 @@ public final class Home extends Activity {
         applied = cfg.version();
         int accent = cfg.accent();
         for (TextView c : chips) {
-            Ui.focusStyle(c, accent, 0x14FFFFFF, dp(18));
+            Ui.focusStyle(c, accent, tvos() ? 0x26FFFFFF : 0x14FFFFFF, dp(18));
             c.setVisibility(locked() ? View.GONE : View.VISIBLE);
         }
         meter.setVisibility("on".equals(cfg.get(Config.MEMORY)) ? View.VISIBLE : View.GONE);
@@ -656,6 +674,7 @@ public final class Home extends Activity {
                             fresh.icon = old.icon;
                             fresh.artRequested = true;
                             fresh.backgroundColor = old.backgroundColor;
+                            fresh.backdrop = old.backdrop;
                         }
                     }
                 }
@@ -773,6 +792,10 @@ public final class Home extends Activity {
 
     private void focusBackground(Item it) {
         String mode = cfg.get(Config.BACKGROUND);
+        if ("backdrop".equals(mode)) {
+            if (resumed) backdrop(it);
+            return;
+        }
         if (!resumed || !"adaptive".equals(mode) && !"adaptive-tint".equals(mode)) return;
         if ("adaptive-tint".equals(mode) && !tintWallpaper) return;
         if (it != null && it.info != null && it.backgroundColor == 0 && !it.colorRequested
@@ -799,6 +822,42 @@ public final class Home extends Activity {
         colorAnimation.setDuration(250);
         colorAnimation.addUpdateListener(a -> setAdaptiveColor((Integer) a.getAnimatedValue()));
         colorAnimation.start();
+    }
+
+    /**
+     * Background › Blurred artwork: crossfades to a blur of the focused app's art. Inputs and
+     * the chips keep whatever is showing, so moving off the apps row does not flash.
+     */
+    private void backdrop(Item it) {
+        if (it == null || it.info == null) return;
+        if (it.backdrop == null) {
+            if (!it.backdropRequested && (it.banner != null || it.icon != null)) {
+                it.backdropRequested = true;
+                colorIo.execute(() -> {
+                    android.graphics.Bitmap b = Backdrop.from(it.banner != null ? it.banner : it.icon);
+                    ui.post(() -> {
+                        it.backdrop = b;
+                        if (focusedItem() == it) backdrop(it);
+                    });
+                });
+            }
+            return;
+        }
+        if (it.backdrop == shownBackdrop) return;
+        shownBackdrop = it.backdrop;
+        BitmapDrawable next = new BitmapDrawable(getResources(), it.backdrop);
+        next.setFilterBitmap(true);
+        Drawable current = wall.getDrawable();
+        if (current instanceof TransitionDrawable) {
+            TransitionDrawable t = (TransitionDrawable) current;
+            current = t.getDrawable(t.getNumberOfLayers() - 1);
+        }
+        if (current == null) current = new ColorDrawable(Color.BLACK);
+        TransitionDrawable fade = new TransitionDrawable(new Drawable[] {current, next});
+        fade.setCrossFadeEnabled(true);
+        wall.setImageDrawable(fade);
+        boolean animate = Settings.Global.getFloat(getContentResolver(), "animator_duration_scale", 1f) != 0f;
+        fade.startTransition(animate ? 400 : 0);
     }
 
     private void setAdaptiveColor(int color) {
@@ -890,6 +949,28 @@ public final class Home extends Activity {
 
     private void background() {
         String mode = cfg.get(Config.BACKGROUND);
+        if ("backdrop".equals(mode)) {
+            if (!mode.equals(backgroundMode)) {
+                stopColorAnimation();
+                targetColor = 0;
+                tint.setBackgroundColor(Color.TRANSPARENT);
+                root.setBackgroundColor(Color.BLACK);
+                // Darker toward the bottom, so the clock and rows read on any artwork.
+                shade.setBackground(new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
+                        new int[] {0x73000000, 0x8C000000, 0xD9000000}));
+                wall.setScaleType(ImageView.ScaleType.FIT_XY);
+                wall.setImageDrawable(null);
+                shownBackdrop = null;
+                wallKey = "backdrop";
+                backgroundMode = mode;
+            }
+            focusBackground(focusedItem());
+            return;
+        }
+        if ("backdrop".equals(backgroundMode)) {
+            wall.setScaleType(ImageView.ScaleType.CENTER_CROP);
+            shownBackdrop = null;
+        }
         boolean image = "image".equals(mode) || "adaptive-tint".equals(mode);
         File file = image ? cfg.wallpaper() : null;
         tintWallpaper = "adaptive-tint".equals(mode) && file != null;

@@ -56,10 +56,10 @@ final class Config {
         }
     }
 
-    static final Choice ACCENT = new Choice("accent", "Accent color", "blue",
+    static final Choice ACCENT = new Choice("accent", "Accent color", "white",
             new String[] {"white", "blue", "cyan", "green", "amber", "red", "pink", "violet"},
             new String[] {"White", "Blue", "Cyan", "Green", "Amber", "Red", "Pink", "Violet"});
-    static final Choice TILES = new Choice("tiles", "Tile size", "medium",
+    static final Choice TILES = new Choice("tiles", "Tile size", "large",
             new String[] {"small", "medium", "large"},
             new String[] {"Small", "Medium", "Large"});
     static final Choice LAYOUT = new Choice("layout", "Layout", "rows",
@@ -84,9 +84,10 @@ final class Config {
     static final Choice SWITCH = new Choice("switch", "Open inputs with", "auto",
             new String[] {"auto", "tv", "home"},
             new String[] {"Automatic", "The TV's app", "dumbtv home"});
-    static final Choice BACKGROUND = new Choice("background", "Background", "black",
-            new String[] {"black", "graphite", "midnight", "image", "adaptive", "adaptive-tint"},
-            new String[] {"Black", "Graphite", "Midnight", "Image file", "Adaptive solid", "Adaptive wallpaper tint"});
+    static final Choice BACKGROUND = new Choice("background", "Background", "backdrop",
+            new String[] {"black", "graphite", "midnight", "image", "adaptive", "adaptive-tint", "backdrop"},
+            new String[] {"Black", "Graphite", "Midnight", "Image file", "Adaptive solid", "Adaptive wallpaper tint",
+                    "Blurred artwork"});
     static final Choice DIM = new Choice("dim", "Image dim", "40",
             new String[] {"0", "20", "40", "60", "80"},
             new String[] {"0%", "20%", "40%", "60%", "80%"});
@@ -103,8 +104,8 @@ final class Config {
             new String[] {"off", "on"},
             new String[] {"Off", "On"});
 
-    static final Choice TILE_STYLE = new Choice("tile_style", "App tile style", "original",
-            new String[] {"original", "afterglow"}, new String[] {"Original", "Afterglow"});
+    static final Choice TILE_STYLE = new Choice("tile_style", "App tile style", "tvos",
+            new String[] {"original", "afterglow", "tvos"}, new String[] {"Original", "Afterglow", "Apple TV"});
     static final Choice[] CHOICES = {ACCENT, TILES, LAYOUT, ORDER, LABELS, CLOCK, MEMORY, INPUTS, SWITCH, BACKGROUND, DIM, ROTATE, LOCK, TILE_STYLE};
 
     /** Folder of wallpapers, next to home.conf, that Background › Image file rotates through. */
@@ -114,7 +115,7 @@ final class Config {
     private static final int[] ACCENTS = {
         0xFFFFFFFF, 0xFF3D8BFF, 0xFF2BC4E8, 0xFF34C759, 0xFFFFB340, 0xFFFF5147, 0xFFFF5C9D, 0xFFA07CFF,
     };
-    private static final int[] BACKGROUNDS = {0xFF000000, 0xFF141518, 0xFF0B1220, 0xFF000000, 0xFF141518, 0xFF141518};
+    private static final int[] BACKGROUNDS = {0xFF000000, 0xFF141518, 0xFF0B1220, 0xFF000000, 0xFF141518, 0xFF141518, 0xFF000000};
 
     private static Config instance;
 
